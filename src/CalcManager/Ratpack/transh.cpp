@@ -1,4 +1,4 @@
-﻿// Copyright (c) Microsoft Corporation. All rights reserved.
+// Copyright (c) Microsoft Corporation. All rights reserved.
 // Licensed under the MIT License.
 
 //-----------------------------------------------------------------------------
@@ -88,7 +88,7 @@ void _sinhrat(PRAT* px, int32_t precision)
     DESTROYTAYLOR();
 }
 
-void sinhrat(PRAT* px, uint32_t radix, int32_t precision)
+void sinhrat(_Inout_ PRAT* px, uint32_t radix, int32_t precision)
 
 {
     PRAT tmpx = nullptr;
@@ -99,7 +99,7 @@ void sinhrat(PRAT* px, uint32_t radix, int32_t precision)
         exprat(px, radix, precision);
         tmpx->pp->sign *= -1;
         exprat(&tmpx, radix, precision);
-        subrat(px, tmpx, precision);
+        _subrat(px, tmpx, precision);
         divrat(px, rat_two, precision);
         destroyrat(tmpx);
     }
@@ -169,7 +169,7 @@ void _coshrat(PRAT* px, uint32_t radix, int32_t precision)
     DESTROYTAYLOR();
 }
 
-void coshrat(PRAT* px, uint32_t radix, int32_t precision)
+void coshrat(_Inout_ PRAT* px, uint32_t radix, int32_t precision)
 
 {
     PRAT tmpx = nullptr;
@@ -182,7 +182,7 @@ void coshrat(PRAT* px, uint32_t radix, int32_t precision)
         exprat(px, radix, precision);
         tmpx->pp->sign *= -1;
         exprat(&tmpx, radix, precision);
-        addrat(px, tmpx, precision);
+        _addrat(px, tmpx, precision);
         divrat(px, rat_two, precision);
         destroyrat(tmpx);
     }
@@ -211,7 +211,7 @@ void coshrat(PRAT* px, uint32_t radix, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-void tanhrat(PRAT* px, uint32_t radix, int32_t precision)
+void tanhrat(_Inout_ PRAT* px, uint32_t radix, int32_t precision)
 
 {
     PRAT ptmp = nullptr;

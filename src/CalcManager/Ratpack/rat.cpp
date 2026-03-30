@@ -37,7 +37,7 @@ using namespace std;
 //
 //-----------------------------------------------------------------------------
 
-void gcdrat(PRAT* pa, int32_t precision)
+void gcdrat(_Inout_ PRAT* pa, int32_t precision)
 
 {
     PNUMBER pgcd = nullptr;
@@ -70,7 +70,7 @@ void gcdrat(PRAT* pa, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-void fracrat(PRAT* pa, uint32_t radix, int32_t precision)
+void fracrat(_Inout_ PRAT* pa, uint32_t radix, int32_t precision)
 {
     // Only do the flatrat operation if number is nonzero.
     // and only if the bottom part is not one.
@@ -98,7 +98,7 @@ void fracrat(PRAT* pa, uint32_t radix, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-void mulrat(PRAT* pa, PRAT b, int32_t precision)
+void mulrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
 
 {
     // Only do the multiply if it isn't zero.
@@ -132,7 +132,7 @@ void mulrat(PRAT* pa, PRAT b, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-void divrat(PRAT* pa, PRAT b, int32_t precision)
+void divrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
 
 {
     if (!zernum((*pa)->pp))
@@ -171,28 +171,43 @@ void divrat(PRAT* pa, PRAT b, int32_t precision)
 
 //-----------------------------------------------------------------------------
 //
-//    FUNCTION: subrat
+//    FUNCTION: subrat, _subrat
 //
 //    ARGUMENTS: pointer to a rational a second rational.
 //
 //    RETURN: None, changes first pointer.
 //
-//    DESCRIPTION: Does the rational equivalent of *pa += b.
+//    DESCRIPTION: Does the rational equivalent of *pa -= b.
 //    Assumes base is internal throughout.
+//
+//    subrat does snapping to zero after subtraction. All ratpak internal
+//    should use _subrat by default.
 //
 //-----------------------------------------------------------------------------
 
-void subrat(PRAT* pa, PRAT b, int32_t precision)
+void subrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
+
+{
+    PRAT a = nullptr;
+    DUPRAT(a, *pa);
+
+    _subrat(pa, b, precision);
+
+    _snaprat(pa, a, b, precision);
+    destroyrat(a);
+}
+
+void _subrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
 
 {
     b->pp->sign *= -1;
-    addrat(pa, b, precision);
+    _addrat(pa, b, precision);
     b->pp->sign *= -1;
 }
 
 //-----------------------------------------------------------------------------
 //
-//    FUNCTION: addrat
+//    FUNCTION: addrat, _addrat
 //
 //    ARGUMENTS: pointer to a rational a second rational.
 //
@@ -201,10 +216,23 @@ void subrat(PRAT* pa, PRAT b, int32_t precision)
 //    DESCRIPTION: Does the rational equivalent of *pa += b.
 //    Assumes base is internal throughout.
 //
+//    addrat does snapping to zero after addition. All ratpak internal should
+//    use _addrat by default.
+//
 //-----------------------------------------------------------------------------
 
-void addrat(PRAT* pa, PRAT b, int32_t precision)
+void addrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
+{
+    PRAT a = nullptr;
+    DUPRAT(a, *pa);
 
+    _addrat(pa, b, precision);
+
+    _snaprat(pa, a, b, precision);
+    destroyrat(a);
+}
+
+void _addrat(_Inout_ PRAT* pa, _In_ PRAT b, int32_t precision)
 {
     PNUMBER bot = nullptr;
 
@@ -255,7 +283,7 @@ void addrat(PRAT* pa, PRAT b, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-void rootrat(PRAT* py, PRAT n, uint32_t radix, int32_t precision)
+void rootrat(_Inout_ PRAT* py, _In_ PRAT n, uint32_t radix, int32_t precision)
 {
     // Initialize 1/n
     PRAT oneovern = nullptr;
@@ -280,8 +308,81 @@ void rootrat(PRAT* py, PRAT n, uint32_t radix, int32_t precision)
 //
 //-----------------------------------------------------------------------------
 
-bool zerrat(PRAT a)
+bool zerrat(_In_ PRAT a)
 
 {
     return (zernum(a->pp));
+}
+
+//-----------------------------------------------------------------------------
+//
+//    FUNCTION: _snaprat
+//
+//    ARGUMENTS: r prat to potentially snap to zero
+//               a, b prats for comparison.
+//               b is optional and can be null for unary operations.
+//
+//    DESCRIPTION: If |pr| is magnitude smaller than |a| or |b| beyond
+//    precision, snap pr to 0. This is to address issues with exposing tiny
+//    residuals to the user in calculations that should yield zero.
+// 
+//    Example: let rat a = sqrt(2.25), rat b = 1.5. r = a - b should be zero.
+//    However, rat a is an approximation of sqrt(2.25) and very close to 1.5,
+//    but not exactly 1.5. The result r is a tiny residual close to zero, but
+//    not zero. _snaprat can be used to check if r is small enough compared to
+//    a or b, and snap it to zero if so. Without this, users may see unexpected
+//    tiny values in results that should be zero.
+//
+//    log(a) where a is very close to 1 is another example. The result should be
+//    zero.
+//
+//    trimit also removes digits but it's for a different reason.
+//
+//    Notice that trigonometric functions sinrat/cosrat have specifically
+//    adjusted for approximation errors.
+//
+//-----------------------------------------------------------------------------
+
+void _snaprat(_Inout_ PRAT* pr, _In_ PRAT a, _In_opt_ PRAT b, int32_t precision)
+{
+    PRAT threshold = nullptr;
+    if (!b)
+    {
+        DUPRAT(threshold, a);
+        ABSRAT(threshold);
+    }
+    else
+    {
+        PRAT absA = nullptr;
+        PRAT absB = nullptr;
+        DUPRAT(absA, a);
+        DUPRAT(absB, b);
+        ABSRAT(absA);
+        ABSRAT(absB);
+
+        if (rat_lt(absA, absB, precision))
+        {
+            DUPRAT(threshold, absB);
+        }
+        else
+        {
+            DUPRAT(threshold, absA);
+        }
+        destroyrat(absA);
+        destroyrat(absB);
+    }
+    mulrat(&threshold, rat_smallest, precision);
+
+    PRAT absR = nullptr;
+    DUPRAT(absR, *pr);
+    ABSRAT(absR);
+
+    // if absResult < threshold => snap to zero
+    if (rat_lt(absR, threshold, precision))
+    {
+        DUPRAT(*pr, rat_zero);
+    }
+
+    destroyrat(absR);
+    destroyrat(threshold);
 }

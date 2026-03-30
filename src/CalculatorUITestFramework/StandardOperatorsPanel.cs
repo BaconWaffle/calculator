@@ -2,7 +2,6 @@
 // Licensed under the MIT License.
 
 using OpenQA.Selenium.Appium.Windows;
-using System.Collections.Generic;
 
 namespace CalculatorUITestFramework
 {
@@ -11,7 +10,7 @@ namespace CalculatorUITestFramework
     /// </summary>
     public class StandardOperatorsPanel
     {
-        private WindowsDriver<WindowsElement> session => WinAppDriver.Instance.CalculatorSession;
+        private WindowsDriver<WindowsElement> session => CalculatorDriver.Instance.CalculatorSession;
         public NumberPad NumberPad = new NumberPad();
 
         public WindowsElement PercentButton => this.session.TryFindElementByAccessibilityId("percentButton");
@@ -27,5 +26,6 @@ namespace CalculatorUITestFramework
         public WindowsElement ClearEntryButton => this.session.TryFindElementByAccessibilityId("clearEntryButton");
         public WindowsElement ClearButton => this.session.TryFindElementByAccessibilityId("clearButton");
         public WindowsElement BackSpaceButton => this.session.TryFindElementByAccessibilityId("backSpaceButton");
+        public WindowsElement NegateButton => this.session.TryFindElementByAccessibilityId("negateButton");
     }
 }

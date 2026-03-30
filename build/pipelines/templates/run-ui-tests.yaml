@@ -2,48 +2,49 @@
 
 parameters:
   platform: ''
+  runsettingsFileName: ''
 
 jobs:
 - job: UITests${{ parameters.platform }}
   displayName: UITests ${{ parameters.platform }}
   dependsOn: Build${{ parameters.platform }}
   condition: succeeded()
-  pool:
-    vmImage: windows-2019
   variables:
     skipComponentGovernanceDetection: true
+    DropName: drop-${{ parameters.platform }}
+
   steps:
-  - checkout: none
-
-  - powershell: Set-DisplayResolution -Width 1920 -Height 1080 -Force	
-    displayName: Set resolution to 1920x1080	
-    continueOnError: true	
-
-  - task: DownloadBuildArtifacts@0
-    displayName: Download AppxBundle and CalculatorUITests
-    inputs:
-      artifactName: drop
-      itemPattern: |
-        drop/Release/${{ parameters.platform }}/Calculator/AppPackages/**
-        drop/Release/${{ parameters.platform }}/publish/**
+  - checkout: self
+    fetchDepth: 1
 
   - task: PowerShell@2
-    displayName: Install certificate
+    displayName: Turn off animation effects
     inputs:
-      filePath: $(Build.ArtifactStagingDirectory)/drop/Release/${{ parameters.platform }}/Calculator/AppPackages/Calculator_$(Build.BuildNumber)_Test/Add-AppDevPackage.ps1
-      arguments: -CertificatePath $(Build.ArtifactStagingDirectory)/drop/Release/${{ parameters.platform }}/Calculator/AppPackages/Calculator_$(Build.BuildNumber)_Test/Calculator_$(Build.BuildNumber)_${{ parameters.platform }}.cer -Force
+      filePath: $(Build.SourcesDirectory)\build\scripts\TurnOffAnimationEffects.ps1
 
-  - task: PowerShell@2
+  - task: ScreenResolutionUtility@1
+    displayName: Set resolution to 1920x1080
+    inputs:
+      displaySettings: 'specific'
+      width: 1920
+      height: 1080
+
+  - download: current
+    displayName: Download MsixBundle and CalculatorUITests
+    artifact: $(DropName)
+    patterns: |
+      Calculator/AppPackages/**
+      publish/**
+
+  - powershell: |
+      $(Build.SourcesDirectory)/build/scripts/SignTestApp.ps1 -AppToSign '$(Pipeline.Workspace)/$(DropName)/Calculator/AppPackages/Calculator_*_Test/Calculator_*.msixbundle'
+      $(Pipeline.Workspace)/$(DropName)/Calculator/AppPackages/Calculator_*_Test/Add-AppDevPackage.ps1 -Force
     displayName: Install app
-    inputs:
-      filePath: $(Build.ArtifactStagingDirectory)/drop/Release/${{ parameters.platform }}/Calculator/AppPackages/Calculator_$(Build.BuildNumber)_Test/Add-AppDevPackage.ps1
-      arguments: -Force
 
   - task: VSTest@2
     displayName: Run CalculatorUITests
     inputs:
-      testAssemblyVer2: $(Build.ArtifactStagingDirectory)/drop/Release/${{ parameters.platform }}/publish/CalculatorUITests.dll
-      vsTestVersion: 16.0
-      runSettingsFile: $(Build.ArtifactStagingDirectory)/drop/Release/${{ parameters.platform }}/publish/CalculatorUITests.runsettings
+      testAssemblyVer2: $(Pipeline.Workspace)/$(DropName)/publish/CalculatorUITests.dll
+      runSettingsFile: $(Pipeline.Workspace)/$(DropName)/publish/${{ parameters.runsettingsFileName }}
       platform: ${{ parameters.platform }}
       configuration: Release
